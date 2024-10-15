@@ -1,0 +1,276 @@
+openapi: 3.0.3
+info:
+  title: Mail Service API
+  description: |
+    Email service with rate limiting and planned downtimes.
+    Features:
+    - Rate limited email sending (N emails per minute)
+    - Planned downtime periods (M minutes every P minutes)
+    - RED metrics exposure (Request rate, Error rate, Duration)
+  version: 1.0.0
+  contact:
+    name: Mail Service Team
+    url: https://github.com/yourusername/mailflow
+
+servers:
+  - url: http://localhost:8081
+    description: Main API server
+  - url: http://localhost:9102
+    description: Metrics server
+
+tags:
+  - name: email
+    description: Email sending operations
+  - name: service-status
+    description: Service health and status operations
+  - name: metrics
+    description: Monitoring metrics endpoints
+
+paths:
+  /api/v1/email/send:
+    post:
+      tags:
+        - email
+      summary: Send email
+      description: Send email with rate limiting
+      operationId: sendEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailRequest'
+      responses:
+        '200':
+          description: Email queued for sending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SendEmailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/email/{id}/status:
+    get:
+      tags:
+        - email
+      summary: Get email status
+      description: Get status of previously sent email
+      operationId: getEmailStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Email ID
+      responses:
+        '200':
+          description: Email status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetEmailStatusResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /api/v1/status:
+    get:
+      tags:
+        - service-status
+      summary: Get service status
+      description: Get current service status including next planned downtime
+      operationId: getServiceStatus
+      responses:
+        '200':
+          description: Service status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceStatus'
+
+  /metrics:
+    get:
+      tags:
+        - metrics
+      summary: Get service metrics
+      description: Retrieve RED metrics (Request rate, Error rate, Duration)
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    SendEmailRequest:
+      type: object
+      required:
+        - to
+        - subject
+        - body
+      properties:
+        to:
+          type: string
+          format: email
+        subject:
+          type: string
+          maxLength: 256
+        body:
+          type: string
+        from:
+          type: string
+          format: email
+        template_id:
+          type: string
+          description: Optional template ID for template-based emails
+
+    SendEmailResponse:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, sending, sent, failed]
+        message:
+          type: string
+
+    GetEmailStatusResponse:
+      type: object
+      required:
+        - id
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, sending, sent, failed]
+        sent_at:
+          type: string
+          format: date-time
+        error:
+          type: string
+
+    ServiceStatus:
+      type: object
+      required:
+        - status
+        - rate_limit
+      properties:
+        status:
+          type: string
+          enum: [available, unavailable, maintenance]
+        rate_limit:
+          type: object
+          properties:
+            limit:
+              type: integer
+              description: Maximum number of emails per minute
+            remaining:
+              type: integer
+            reset_at:
+              type: string
+              format: date-time
+        next_downtime:
+          type: object
+          properties:
+            start_time:
+              type: string
+              format: date-time
+            duration:
+              type: string
+              format: duration
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            description: Seconds to wait before retrying
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+            description: Rate limit ceiling
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+            description: Number of requests remaining
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+            description: Unix timestamp when the limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServiceUnavailable:
+      description: Service is in planned downtime
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            description: Seconds until service is available again
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

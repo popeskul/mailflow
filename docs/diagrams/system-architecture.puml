@@ -1,0 +1,134 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam shadowing true
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 12
+skinparam roundCorner 15
+skinparam ArrowThickness 2
+
+title MailFlow - Resilient Email Delivery Platform
+
+' Entry point
+cloud "API Gateway" as Gateway #FFE4B5 {
+  component "(KrakenD)" as GWName
+  note right : Hi! I receive all\nrequests on port 8000\nand route them
+}
+
+' Services
+package "User Service" as UserService #E6F3FF {
+  component "HTTP Server" as UserHTTP #B3D9FF
+  component "Port 8080" as UserHTTPPort
+  component "gRPC Server" as UserGRPC #B3D9FF
+  component "Port 50051" as UserGRPCPort
+  
+  package "Failure Protection" as Protection #F0F0F0 {
+    component "Circuit Breaker" as CB #FFE4E1
+    component "(Smart Switch)" as CBDesc
+    component "Message Queue" as Queue #E4FFE4
+    component "(Temporary Storage)" as QueueDesc
+    component "Retry Handler" as Retry #FFFACD
+  }
+}
+
+package "Email Service" as EmailService #FFE6F0 {
+  component "gRPC Server" as EmailGRPC #FFB3D9
+  component "Port 50052" as EmailGRPCPort
+  
+  package "Flow Control" as Control #F0F0F0 {
+    component "Rate Limiter" as RateLimit #FFE4E1
+    component "(60 emails/min)" as RLDesc
+    component "SMTP Client" as SMTP #E4FFE4
+  }
+  
+  component "Downtime Simulator" as Downtime #FFD4A3
+  component "(for testing)" as DowntimeDesc
+}
+
+' Storage
+database "In-Memory Storage" as Storage #E8F5E9 {
+  collections "Users" as UserDB
+  collections "Emails" as EmailDB
+}
+
+' Monitoring
+package "Observability" as Monitoring #F0E6FF {
+  component "Prometheus" as Prom
+  component "Metrics Collector" as PromDesc
+  component "Grafana" as Graf
+  component "Pretty Dashboards" as GrafDesc
+  component "Jaeger" as Jaeger
+  component "Request Detective" as JaegerDesc
+}
+
+' External services
+cloud "External World" as External #FFFACD {
+  component "SMTP Server" as MailServer
+  component "Alerts" as Alerts
+}
+
+' Main flow
+Gateway -[#4169E1,bold]-> UserHTTP : User sends request
+UserHTTP -[#4169E1]-> UserGRPC : Pass it along
+UserGRPC -[#4169E1]-> CB : Want to send email
+
+' Two scenarios
+CB -[#32CD32,bold]-> EmailGRPC : Everything works!
+CB -[#DC143C,dashed,bold]-> Queue : Oops, it's down!
+
+' Email flow
+EmailGRPC -[#4169E1]-> RateLimit : Check speed
+RateLimit -[#32CD32]-> SMTP : Safe speed
+SMTP -[#4169E1]-> MailServer : Email sent!
+
+' Database
+UserGRPC <-[#9370DB,dashed]-> UserDB : Store/Read
+EmailGRPC <-[#9370DB,dashed]-> EmailDB : Store/Read
+
+' Retry flow
+Queue -[#FF8C00,bold]-> Retry : Found emails
+Retry -[#FF8C00,bold]..> EmailGRPC : Try again
+
+' Monitoring
+UserHTTP -[#9370DB,dotted]-> Prom : Metrics :9101
+EmailGRPC -[#9370DB,dotted]-> Prom : Metrics :9102
+Prom -> Graf : Draw graphs
+Prom -[#DC143C]-> Alerts : Alert!
+
+' Tracing
+UserHTTP -[#9370DB,dotted]-> Jaeger : Traces
+EmailGRPC -[#9370DB,dotted]-> Jaeger : Traces
+
+' Failure simulation
+Downtime -[#DC143C,dashed]-> EmailGRPC : Simulate failure
+
+note right of CB
+  If email service
+  doesn't respond,
+  I stop trying and
+  save requests
+end note
+
+note right of RateLimit
+  I make sure we
+  don't send too
+  many emails
+  at once!
+end note
+
+note left of Downtime
+  Every M minutes
+  I sleep for P minutes
+  (configurable)
+end note
+
+note top of Gateway #FFFACD
+  How does it work?
+  1. User creates an account
+  2. System sends a welcome email
+  3. If email service is down - save to queue
+  4. When service recovers - send all emails
+  5. Everything's under control!
+end note
+
+@enduml

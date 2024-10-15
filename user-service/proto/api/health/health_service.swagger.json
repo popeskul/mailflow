@@ -1,0 +1,164 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api/health/health_service.proto",
+    "version": "version not set"
+  },
+  "tags": [
+    {
+      "name": "HealthService"
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/health": {
+      "get": {
+        "summary": "Check performs a general health check.",
+        "operationId": "HealthService_Check",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/healthHealthCheckResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HealthService"
+        ]
+      }
+    },
+    "/v1/healthz": {
+      "get": {
+        "summary": "Healthz is a legacy endpoint for health checks.",
+        "operationId": "HealthService_Healthz",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/healthHealthCheckResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HealthService"
+        ]
+      }
+    },
+    "/v1/liveness": {
+      "get": {
+        "summary": "Liveness checks if the service is alive.",
+        "operationId": "HealthService_Liveness",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/healthHealthCheckResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HealthService"
+        ]
+      }
+    },
+    "/v1/readiness": {
+      "get": {
+        "summary": "Readiness checks if the service is ready to serve traffic.",
+        "operationId": "HealthService_Readiness",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/healthHealthCheckResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "HealthService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "healthHealthCheckResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/healthHealthStatus",
+          "description": "status is the health status of the service."
+        }
+      },
+      "description": "HealthCheckResponse is the response message for health check RPCs."
+    },
+    "healthHealthStatus": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "HEALTHY",
+        "UNHEALTHY",
+        "ALIVE",
+        "READY"
+      ],
+      "default": "UNKNOWN",
+      "description": "HealthStatus is the status of the service."
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    }
+  }
+}

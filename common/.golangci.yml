@@ -1,0 +1,36 @@
+run:
+  timeout: 3m
+  go: "1.24"
+
+linters-settings:
+  gocyclo:
+    min-complexity: 10
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  misspell:
+    locale: US
+  lll:
+    line-length: 120
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - goconst
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - dupl
+        - gosec

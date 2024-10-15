@@ -52,7 +52,6 @@ func InitTracer(cfg Config) (*sdktrace.TracerProvider, error) {
 
 	otel.SetTracerProvider(tp)
 
-	// ВАЖЛИВО: Встановлюємо propagator для передачі trace context між сервісами
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},

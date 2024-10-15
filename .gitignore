@@ -1,0 +1,17 @@
+.DS_Store
+.idea/
+**/bin/
+.env
+
+# Local binary dependencies
+/bin/
+
+# Old protobuf vendor directories (now using buf modules)
+**/vendor.protobuf/
+common/vendor.protobuf/
+
+# Coverage reports
+coverage/
+**/*.out
+**/coverage.html
+test-output.log
