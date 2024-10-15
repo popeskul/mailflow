@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "name": "api-gateway",
+  "port": 8080,
+  "endpoints": [
+    {
+      "endpoint": "/user/create",
+      "method": "POST",
+      "backend": [
+        {
+          "host": ["http://user-service:8080"],
+          "url_pattern": "/v1/user/create"
+        }
+      ]
+    }
+  ]
+}
