@@ -116,7 +116,6 @@ func main() {
 		go simulateDowntime(emailServer, cfg.Downtime.Interval, cfg.Downtime.Duration, logger)
 	}
 
-	// Graceful shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh

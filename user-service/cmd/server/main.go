@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"log"
 	"net"
 	"net/http"
@@ -11,7 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/grpc-ecosystem/go-grpc-middleware/recovery"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/popeskul/email-service-platform/user-service/internal/adapters/grpc_gateway"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -22,9 +25,7 @@ import (
 	"github.com/popeskul/email-service-platform/user-service/internal/adapters/repositories/memory"
 	"github.com/popeskul/email-service-platform/user-service/internal/config"
 	"github.com/popeskul/email-service-platform/user-service/internal/logger"
-	"github.com/popeskul/email-service-platform/user-service/internal/metrics"
 	"github.com/popeskul/email-service-platform/user-service/internal/services"
-	"github.com/popeskul/email-service-platform/user-service/internal/tracing"
 	pbv1 "github.com/popeskul/email-service-platform/user-service/pkg/api/user/v1"
 )
 
@@ -39,8 +40,6 @@ func main() {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 	defer logger.Sync()
-
-	userMetrics := metrics.NewREDMetrics("user_service")
 
 	emailConn, err := grpc.NewClient(
 		cfg.Email.Address,
@@ -57,31 +56,22 @@ func main() {
 
 	emailClient := emailv1.NewEmailServiceClient(emailConn)
 
-	tp, err := tracing.InitTracer(cfg.Tracing)
-	if err != nil {
-		logger.Fatal("failed to init tracer", zap.Error(err))
-	}
-	defer func() {
-		if err := tp.Shutdown(context.Background()); err != nil {
-			logger.Error("failed to shutdown tracer", zap.Error(err))
-		}
-	}()
-
-	tracer := tp.Tracer("server")
-
 	repos := memory.NewRepositories()
 	services := services.NewServices(repos, emailClient, logger)
 	userServer := grpcServer.NewUserServer(services, logger)
 
 	opts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			grpcServer.RecoveryInterceptor(logger),
-			grpcServer.TracingInterceptor(tracer),
+			grpc_recovery.UnaryServerInterceptor(),
+			otelgrpc.UnaryServerInterceptor(),
+			grpc_prometheus.UnaryServerInterceptor,
 			grpcServer.LoggingInterceptor(logger),
-			grpcServer.MetricsInterceptor(userMetrics),
 		),
+		// TODO: experiment
+		//grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	}
 	server := grpc.NewServer(opts...)
+	grpc_prometheus.Register(server)
 	pbv1.RegisterUserServiceServer(server, userServer)
 
 	lis, err := net.Listen("tcp", cfg.GRPC.Port)
@@ -99,7 +89,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mux := runtime.NewServeMux()
+	mux := grpc_gateway.NewGatewayMux()
 	err = pbv1.RegisterUserServiceHandlerServer(ctx, mux, userServer)
 	if err != nil {
 		logger.Fatal("failed to register gateway", zap.Error(err))
@@ -137,6 +127,8 @@ func main() {
 	<-sigCh
 
 	logger.Info("initiating graceful shutdown")
+
+	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()

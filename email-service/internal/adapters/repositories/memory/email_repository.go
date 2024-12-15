@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"time"
 
@@ -16,12 +17,13 @@ var (
 
 type emailRepository struct {
 	emails map[string]*domain.Email
-	mu     sync.RWMutex
+	mu     *sync.RWMutex
 }
 
 func newEmailRepository() ports.EmailRepository {
 	return &emailRepository{
 		emails: make(map[string]*domain.Email),
+		mu:     &sync.RWMutex{},
 	}
 }
 
@@ -63,19 +65,51 @@ func (r *emailRepository) List(ctx context.Context, pageSize int, pageToken stri
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var emails []*domain.Email
-	var nextPageToken string
+	if pageSize <= 0 {
+		pageSize = 10
+	}
 
-	// Simplified pagination for in-memory storage
+	emails := make([]*domain.Email, len(r.emails))
+	i := 0
 	for _, email := range r.emails {
-		emails = append(emails, email)
-		if pageSize > 0 && len(emails) == pageSize {
-			nextPageToken = email.ID
-			break
+		emails[i] = email
+		i++
+	}
+
+	sort.Slice(emails, func(i, j int) bool {
+		if emails[i].CreatedAt.Equal(emails[j].CreatedAt) {
+			return emails[i].ID < emails[j].ID
+		}
+		return emails[i].CreatedAt.Before(emails[j].CreatedAt)
+	})
+
+	startIndex := 0
+	if pageToken != "" {
+		for i, email := range emails {
+			if email.ID == pageToken {
+				startIndex = i + 1
+				break
+			}
 		}
 	}
 
-	return emails, nextPageToken, nil
+	if startIndex >= len(emails) {
+		return nil, "", nil
+	}
+
+	endIndex := startIndex + pageSize
+	if endIndex > len(emails) {
+		endIndex = len(emails)
+	}
+
+	result := emails[startIndex:endIndex]
+
+	var nextPageToken string
+	if endIndex < len(emails) {
+		nextPageToken = emails[endIndex-1].ID
+	}
+
+	return result, nextPageToken, nil
 }
 
 func (r *emailRepository) DeleteByID(ctx context.Context, id string) error {

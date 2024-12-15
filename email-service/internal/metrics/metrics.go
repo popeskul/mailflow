@@ -34,7 +34,7 @@ func NewREDMetrics(serviceName string) *REDMetrics {
 				Namespace: serviceName,
 				Name:      "request_duration_seconds",
 				Help:      "The duration of requests in seconds",
-				Buckets:   []float64{0.01, 0.05, 0.1, 0.5, 1, 2, 5}, // Кастомные бакеты для более точного измерения
+				Buckets:   []float64{0.01, 0.05, 0.1, 0.5, 1, 2, 5},
 			},
 			[]string{"method"},
 		),

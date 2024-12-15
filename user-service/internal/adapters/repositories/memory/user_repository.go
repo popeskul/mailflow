@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 
 	"github.com/popeskul/email-service-platform/user-service/internal/domain"
@@ -10,13 +11,15 @@ import (
 )
 
 type userRepository struct {
-	users map[string]*domain.User
-	mu    sync.RWMutex
+	users       map[string]*domain.User
+	sortedUsers []*domain.User
+	mu          *sync.RWMutex
 }
 
 func newUserRepository() ports.UserRepository {
 	return &userRepository{
 		users: make(map[string]*domain.User),
+		mu:    &sync.RWMutex{},
 	}
 }
 
@@ -25,11 +28,21 @@ func (r *userRepository) Create(ctx context.Context, user *domain.User) error {
 	defer r.mu.Unlock()
 
 	if _, exists := r.users[user.ID]; exists {
-		return errors.New("email already exists")
+		return errors.New("user already exists")
 	}
 
 	r.users[user.ID] = user
+	r.sortedUsers = append(r.sortedUsers, user)
+	sort.Slice(r.sortedUsers, r.sortUsers)
+
 	return nil
+}
+
+func (r *userRepository) sortUsers(i, j int) bool {
+	if r.sortedUsers[i].CreatedAt.Equal(r.sortedUsers[j].CreatedAt) {
+		return r.sortedUsers[i].ID < r.sortedUsers[j].ID
+	}
+	return r.sortedUsers[i].CreatedAt.Before(r.sortedUsers[j].CreatedAt)
 }
 
 func (r *userRepository) GetByID(ctx context.Context, id string) (*domain.User, error) {
@@ -72,19 +85,31 @@ func (r *userRepository) List(ctx context.Context, pageSize int, pageToken strin
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	var users []*domain.User
-	var nextPageToken string
-
-	for _, user := range r.users {
-		users = append(users, user)
-		if len(users) == pageSize {
-			break
+	startIndex := 0
+	if pageToken != "" {
+		for i, user := range r.sortedUsers {
+			if user.ID == pageToken {
+				startIndex = i + 1
+				break
+			}
 		}
 	}
 
-	if len(users) == pageSize && len(r.users) > pageSize {
-		nextPageToken = "next_page"
+	if startIndex >= len(r.sortedUsers) {
+		return nil, "", nil
 	}
 
-	return users, nextPageToken, nil
+	endIndex := startIndex + pageSize
+	if endIndex > len(r.sortedUsers) {
+		endIndex = len(r.sortedUsers)
+	}
+
+	result := r.sortedUsers[startIndex:endIndex]
+
+	var nextPageToken string
+	if endIndex < len(r.sortedUsers) {
+		nextPageToken = r.sortedUsers[endIndex-1].ID
+	}
+
+	return result, nextPageToken, nil
 }
