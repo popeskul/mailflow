@@ -492,12 +492,12 @@ var file_api_user_v1_user_service_proto_depIdxs = []int32{
 	0, // 0: user.v1.CreateUserResponse.user:type_name -> user.v1.UserRepository
 	0, // 1: user.v1.GetUserResponse.user:type_name -> user.v1.UserRepository
 	0, // 2: user.v1.ListUsersResponse.users:type_name -> user.v1.UserRepository
-	1, // 3: user.v1.UserService.CreateUser:input_type -> user.v1.CreateUserRequest
-	3, // 4: user.v1.UserService.GetUser:input_type -> user.v1.GetUserRequest
-	5, // 5: user.v1.UserService.ListUsers:input_type -> user.v1.ListUsersRequest
-	2, // 6: user.v1.UserService.CreateUser:output_type -> user.v1.CreateUserResponse
-	4, // 7: user.v1.UserService.GetUser:output_type -> user.v1.GetUserResponse
-	6, // 8: user.v1.UserService.ListUsers:output_type -> user.v1.ListUsersResponse
+	1, // 3: user.v1.user.CreateUser:input_type -> user.v1.CreateUserRequest
+	3, // 4: user.v1.user.GetUser:input_type -> user.v1.GetUserRequest
+	5, // 5: user.v1.user.ListUsers:input_type -> user.v1.ListUsersRequest
+	2, // 6: user.v1.user.CreateUser:output_type -> user.v1.CreateUserResponse
+	4, // 7: user.v1.user.GetUser:output_type -> user.v1.GetUserResponse
+	6, // 8: user.v1.user.ListUsers:output_type -> user.v1.ListUsersResponse
 	6, // [6:9] is the sub-list for method output_type
 	3, // [3:6] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

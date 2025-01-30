@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -12,32 +11,33 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	grpcServer "github.com/popeskul/email-service-platform/email-service/internal/adapters/grpc"
-	"github.com/popeskul/email-service-platform/email-service/internal/adapters/repositories/memory"
-	"github.com/popeskul/email-service-platform/email-service/internal/adapters/smtp"
 	"github.com/popeskul/email-service-platform/email-service/internal/config"
-	"github.com/popeskul/email-service-platform/email-service/internal/logger"
+	grpc2 "github.com/popeskul/email-service-platform/email-service/internal/grpc"
 	"github.com/popeskul/email-service-platform/email-service/internal/metrics"
+	"github.com/popeskul/email-service-platform/email-service/internal/repositories/memory"
 	"github.com/popeskul/email-service-platform/email-service/internal/services"
+	"github.com/popeskul/email-service-platform/email-service/internal/smtp"
 	"github.com/popeskul/email-service-platform/email-service/internal/tracing"
 	pb "github.com/popeskul/email-service-platform/email-service/pkg/api/email/v1"
+	"github.com/popeskul/email-service-platform/logger"
 	"github.com/popeskul/ratelimiter"
 )
 
 func main() {
+	l := logger.NewZapLogger(
+		logger.WithLogLevel(logger.InfoLevel),
+		logger.WithJSONFormat(),
+	).Named("email_service")
+	defer l.Sync()
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		l.Fatal("failed to load config",
+			logger.Field{Key: "error", Value: err},
+		)
 	}
-
-	logger, err := logger.NewLogger(cfg.Logger, "email_service")
-	if err != nil {
-		log.Fatalf("Failed to create logger: %v", err)
-	}
-	defer logger.Sync()
 
 	emailMetrics := metrics.NewEmailMetrics("email_service")
 
@@ -47,10 +47,12 @@ func main() {
 		ratelimiter.WithAlgorithm(ratelimiter.TokenBucketAlgorithm),
 	)
 	if err != nil {
-		logger.Fatal("failed to create rate limiter", zap.Error(err))
+		l.Fatal("failed to create rate limiter",
+			logger.Field{Key: "error", Value: err},
+		)
 	}
 
-	repos := memory.NewRepositories()
+	repos := memory.NewRepositories(l)
 	emailSender := smtp.NewSMTPSender(
 		cfg.SMTP.Enabled,
 		cfg.SMTP.Host,
@@ -58,19 +60,23 @@ func main() {
 		cfg.SMTP.Username,
 		cfg.SMTP.Password,
 		cfg.SMTP.From,
-		logger,
+		l,
 	)
 
-	services := services.NewServices(repos, emailSender, limiter, emailMetrics, logger)
-	emailServer := grpcServer.NewEmailServer(services.EmailService, emailMetrics, logger)
+	services := services.NewServices(repos, emailSender, limiter, emailMetrics, l)
+	emailServer := grpc2.NewEmailServer(services.Email(), emailMetrics, l)
 
 	tp, err := tracing.InitTracer(cfg.Tracing)
 	if err != nil {
-		logger.Fatal("failed to init tracer", zap.Error(err))
+		l.Fatal("failed to init tracer",
+			logger.Field{Key: "error", Value: err},
+		)
 	}
 	defer func() {
 		if err := tp.Shutdown(context.Background()); err != nil {
-			logger.Error("failed to shutdown tracer", zap.Error(err))
+			l.Error("failed to shutdown tracer",
+				logger.Field{Key: "error", Value: err},
+			)
 		}
 	}()
 
@@ -78,10 +84,10 @@ func main() {
 
 	opts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
-			grpcServer.RecoveryInterceptor(logger),
-			grpcServer.TracingInterceptor(tracer),
-			grpcServer.LoggingInterceptor(logger),
-			grpcServer.MetricsInterceptor(emailMetrics),
+			grpc2.RecoveryInterceptor(l),
+			grpc2.TracingInterceptor(tracer),
+			grpc2.LoggingInterceptor(l),
+			grpc2.MetricsInterceptor(emailMetrics),
 		),
 	}
 	server := grpc.NewServer(opts...)
@@ -89,13 +95,21 @@ func main() {
 
 	lis, err := net.Listen("tcp", cfg.GRPC.Port)
 	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
+		l.Fatal("failed to listen",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "port", Value: cfg.GRPC.Port},
+		)
 	}
 
 	go func() {
-		logger.Info("starting grpc server", zap.String("port", cfg.GRPC.Port))
+		l.Info("starting grpc server",
+			logger.Field{Key: "port", Value: cfg.GRPC.Port},
+		)
 		if err := server.Serve(lis); err != nil {
-			logger.Fatal("failed to serve grpc", zap.Error(err))
+			l.Fatal("failed to serve grpc",
+				logger.Field{Key: "error", Value: err},
+				logger.Field{Key: "port", Value: cfg.GRPC.Port},
+			)
 		}
 	}()
 
@@ -105,49 +119,57 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("starting metrics server", zap.String("port", cfg.Metrics.Port))
+		l.Info("starting metrics server",
+			logger.Field{Key: "port", Value: cfg.Metrics.Port},
+		)
 		if err := metricsServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("failed to serve metrics", zap.Error(err))
+			l.Fatal("failed to serve metrics",
+				logger.Field{Key: "error", Value: err},
+				logger.Field{Key: "port", Value: cfg.Metrics.Port},
+			)
 		}
 	}()
 
 	// Run shutdown simulation if enabled
 	if cfg.Downtime.Enabled {
-		go simulateDowntime(emailServer, cfg.Downtime.Interval, cfg.Downtime.Duration, logger)
+		go simulateDowntime(emailServer, cfg.Downtime.Interval, cfg.Downtime.Duration, l)
 	}
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
 
-	logger.Info("initiating graceful shutdown")
+	l.Info("initiating graceful shutdown")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	server.GracefulStop()
 	if err := metricsServer.Shutdown(ctx); err != nil {
-		logger.Error("failed to shutdown metrics server", zap.Error(err))
+		l.Error("failed to shutdown metrics server",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "port", Value: cfg.Metrics.Port},
+		)
 	}
 
-	logger.Info("service stopped")
+	l.Info("service stopped")
 }
 
 func simulateDowntime(
-	server *grpcServer.EmailServer,
+	server *grpc2.EmailServer,
 	interval, duration time.Duration,
-	logger *zap.Logger,
+	l logger.Logger,
 ) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		logger.Info("service is going down for maintenance",
-			zap.Duration("duration", duration),
+		l.Info("service is going down for maintenance",
+			logger.Field{Key: "duration", Value: duration},
 		)
 		server.SetDowntime(true)
 		time.Sleep(duration)
 		server.SetDowntime(false)
-		logger.Info("service is back up")
+		l.Info("service is back up")
 	}
 }

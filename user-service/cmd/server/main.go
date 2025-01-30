@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -14,61 +12,66 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/popeskul/email-service-platform/user-service/internal/adapters/grpc_gateway"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"go.uber.org/zap"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
 	emailv1 "github.com/popeskul/email-service-platform/email-service/pkg/api/email/v1"
-	grpcServer "github.com/popeskul/email-service-platform/user-service/internal/adapters/grpc"
-	"github.com/popeskul/email-service-platform/user-service/internal/adapters/repositories/memory"
+	"github.com/popeskul/email-service-platform/logger"
 	"github.com/popeskul/email-service-platform/user-service/internal/config"
-	"github.com/popeskul/email-service-platform/user-service/internal/logger"
+	grpc2 "github.com/popeskul/email-service-platform/user-service/internal/grpc"
+	"github.com/popeskul/email-service-platform/user-service/internal/grpc_gateway"
+	"github.com/popeskul/email-service-platform/user-service/internal/repositories/memory"
 	"github.com/popeskul/email-service-platform/user-service/internal/services"
 	pbv1 "github.com/popeskul/email-service-platform/user-service/pkg/api/user/v1"
 )
 
 func main() {
+	l := logger.NewZapLogger(
+		logger.WithLogLevel(logger.InfoLevel),
+		logger.WithJSONFormat(),
+	)
+	defer l.Sync()
+
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		l.Fatal("failed to load config",
+			logger.Field{Key: "error", Value: err},
+		)
 	}
-
-	logger, err := logger.NewLogger(cfg.Logger, "user_service")
-	if err != nil {
-		log.Fatalf("Failed to create logger: %v", err)
-	}
-	defer logger.Sync()
 
 	emailConn, err := grpc.NewClient(
 		cfg.Email.Address,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
-		logger.Fatal("failed to connect to email service", zap.Error(err))
+		l.Fatal("failed to connect to email service",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "address", Value: cfg.Email.Address},
+		)
 	}
 	defer func() {
 		if err := emailConn.Close(); err != nil {
-			logger.Error("failed to close email connection", zap.Error(err))
+			l.Error("failed to close email connection",
+				logger.Field{Key: "error", Value: err},
+			)
 		}
 	}()
 
 	emailClient := emailv1.NewEmailServiceClient(emailConn)
 
 	repos := memory.NewRepositories()
-	services := services.NewServices(repos, emailClient, logger)
-	userServer := grpcServer.NewUserServer(services, logger)
+	services := services.NewServices(repos, emailClient, l)
+	userServer := grpc2.NewUserServer(services, l)
 
 	opts := []grpc.ServerOption{
 		grpc.ChainUnaryInterceptor(
 			grpc_recovery.UnaryServerInterceptor(),
 			otelgrpc.UnaryServerInterceptor(),
 			grpc_prometheus.UnaryServerInterceptor,
-			grpcServer.LoggingInterceptor(logger),
+			grpc2.LoggingInterceptor(l),
 		),
-		// TODO: experiment
-		//grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	}
 	server := grpc.NewServer(opts...)
 	grpc_prometheus.Register(server)
@@ -76,13 +79,21 @@ func main() {
 
 	lis, err := net.Listen("tcp", cfg.GRPC.Port)
 	if err != nil {
-		logger.Fatal("failed to listen", zap.Error(err))
+		l.Fatal("failed to start tcp listener",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "port", Value: cfg.GRPC.Port},
+		)
 	}
 
 	go func() {
-		logger.Info("starting grpc server", zap.String("port", cfg.GRPC.Port))
+		l.Info("starting grpc server",
+			logger.Field{Key: "port", Value: cfg.GRPC.Port},
+		)
 		if err := server.Serve(lis); err != nil {
-			logger.Fatal("failed to serve grpc", zap.Error(err))
+			l.Fatal("failed to serve grpc",
+				logger.Field{Key: "error", Value: err},
+				logger.Field{Key: "port", Value: cfg.GRPC.Port},
+			)
 		}
 	}()
 
@@ -92,7 +103,9 @@ func main() {
 	mux := grpc_gateway.NewGatewayMux()
 	err = pbv1.RegisterUserServiceHandlerServer(ctx, mux, userServer)
 	if err != nil {
-		logger.Fatal("failed to register gateway", zap.Error(err))
+		l.Fatal("failed to register gateway",
+			logger.Field{Key: "error", Value: err},
+		)
 	}
 
 	// Setup HTTP server (gRPC-Gateway)
@@ -102,9 +115,14 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("starting http server", zap.String("port", cfg.HTTP.Port))
+		l.Info("starting http server",
+			logger.Field{Key: "port", Value: cfg.HTTP.Port},
+		)
 		if err := httpServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("failed to serve http", zap.Error(err))
+			l.Fatal("failed to serve http",
+				logger.Field{Key: "error", Value: err},
+				logger.Field{Key: "port", Value: cfg.HTTP.Port},
+			)
 		}
 	}()
 
@@ -115,9 +133,14 @@ func main() {
 	}
 
 	go func() {
-		logger.Info("starting metrics server", zap.String("port", cfg.Metrics.Port))
+		l.Info("starting metrics server",
+			logger.Field{Key: "port", Value: cfg.Metrics.Port},
+		)
 		if err := metricsServer.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("failed to serve metrics", zap.Error(err))
+			l.Fatal("failed to serve metrics",
+				logger.Field{Key: "error", Value: err},
+				logger.Field{Key: "port", Value: cfg.Metrics.Port},
+			)
 		}
 	}()
 
@@ -126,7 +149,7 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
 
-	logger.Info("initiating graceful shutdown")
+	l.Info("initiating graceful shutdown")
 
 	cancel()
 
@@ -136,12 +159,18 @@ func main() {
 	server.GracefulStop()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		logger.Error("failed to shutdown http server", zap.Error(err))
+		l.Error("failed to shutdown http server",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "port", Value: cfg.HTTP.Port},
+		)
 	}
 
 	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
-		logger.Error("failed to shutdown metrics server", zap.Error(err))
+		l.Error("failed to shutdown metrics server",
+			logger.Field{Key: "error", Value: err},
+			logger.Field{Key: "port", Value: cfg.Metrics.Port},
+		)
 	}
 
-	logger.Info("service stopped")
+	l.Info("service stopped")
 }

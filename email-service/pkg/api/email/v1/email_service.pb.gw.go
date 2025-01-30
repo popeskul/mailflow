@@ -127,7 +127,7 @@ func local_request_EmailService_ListEmails_0(ctx context.Context, marshaler runt
 	return msg, metadata, err
 }
 
-// RegisterEmailServiceHandlerServer registers the http handlers for service EmailService to "mux".
+// RegisterEmailServiceHandlerServer registers the http handlers for service email to "mux".
 // UnaryRPC     :call EmailServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterEmailServiceHandlerFromEndpoint instead.
@@ -139,7 +139,7 @@ func RegisterEmailServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/email.v1.EmailService/SendEmail", runtime.WithHTTPPathPattern("/api/v1/email/send"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/email.v1.email/SendEmail", runtime.WithHTTPPathPattern("/api/v1/email/send"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -159,7 +159,7 @@ func RegisterEmailServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/email.v1.EmailService/GetEmailStatus", runtime.WithHTTPPathPattern("/api/v1/email/{id}/status"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/email.v1.email/GetEmailStatus", runtime.WithHTTPPathPattern("/api/v1/email/{id}/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -179,7 +179,7 @@ func RegisterEmailServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/email.v1.EmailService/ListEmails", runtime.WithHTTPPathPattern("/api/v1/email"))
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/email.v1.email/ListEmails", runtime.WithHTTPPathPattern("/api/v1/email"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -221,13 +221,13 @@ func RegisterEmailServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.S
 	return RegisterEmailServiceHandler(ctx, mux, conn)
 }
 
-// RegisterEmailServiceHandler registers the http handlers for service EmailService to "mux".
+// RegisterEmailServiceHandler registers the http handlers for service email to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
 func RegisterEmailServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
 	return RegisterEmailServiceHandlerClient(ctx, mux, NewEmailServiceClient(conn))
 }
 
-// RegisterEmailServiceHandlerClient registers the http handlers for service EmailService
+// RegisterEmailServiceHandlerClient registers the http handlers for service email
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "EmailServiceClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "EmailServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
@@ -237,7 +237,7 @@ func RegisterEmailServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/email.v1.EmailService/SendEmail", runtime.WithHTTPPathPattern("/api/v1/email/send"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/email.v1.email/SendEmail", runtime.WithHTTPPathPattern("/api/v1/email/send"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -254,7 +254,7 @@ func RegisterEmailServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/email.v1.EmailService/GetEmailStatus", runtime.WithHTTPPathPattern("/api/v1/email/{id}/status"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/email.v1.email/GetEmailStatus", runtime.WithHTTPPathPattern("/api/v1/email/{id}/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -271,7 +271,7 @@ func RegisterEmailServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/email.v1.EmailService/ListEmails", runtime.WithHTTPPathPattern("/api/v1/email"))
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/email.v1.email/ListEmails", runtime.WithHTTPPathPattern("/api/v1/email"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return

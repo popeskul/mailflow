@@ -548,12 +548,12 @@ var file_api_email_v1_email_service_proto_goTypes = []any{
 }
 var file_api_email_v1_email_service_proto_depIdxs = []int32{
 	0, // 0: email.v1.ListEmailsResponse.emails:type_name -> email.v1.Email
-	1, // 1: email.v1.EmailService.SendEmail:input_type -> email.v1.SendEmailRequest
-	3, // 2: email.v1.EmailService.GetEmailStatus:input_type -> email.v1.GetEmailStatusRequest
-	5, // 3: email.v1.EmailService.ListEmails:input_type -> email.v1.ListEmailsRequest
-	2, // 4: email.v1.EmailService.SendEmail:output_type -> email.v1.SendEmailResponse
-	4, // 5: email.v1.EmailService.GetEmailStatus:output_type -> email.v1.GetEmailStatusResponse
-	6, // 6: email.v1.EmailService.ListEmails:output_type -> email.v1.ListEmailsResponse
+	1, // 1: email.v1.email.SendEmail:input_type -> email.v1.SendEmailRequest
+	3, // 2: email.v1.email.GetEmailStatus:input_type -> email.v1.GetEmailStatusRequest
+	5, // 3: email.v1.email.ListEmails:input_type -> email.v1.ListEmailsRequest
+	2, // 4: email.v1.email.SendEmail:output_type -> email.v1.SendEmailResponse
+	4, // 5: email.v1.email.GetEmailStatus:output_type -> email.v1.GetEmailStatusResponse
+	6, // 6: email.v1.email.ListEmails:output_type -> email.v1.ListEmailsResponse
 	4, // [4:7] is the sub-list for method output_type
 	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

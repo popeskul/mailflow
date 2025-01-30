@@ -19,12 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	EmailService_SendEmail_FullMethodName      = "/email.v1.EmailService/SendEmail"
-	EmailService_GetEmailStatus_FullMethodName = "/email.v1.EmailService/GetEmailStatus"
-	EmailService_ListEmails_FullMethodName     = "/email.v1.EmailService/ListEmails"
+	EmailService_SendEmail_FullMethodName      = "/email.v1.email/SendEmail"
+	EmailService_GetEmailStatus_FullMethodName = "/email.v1.email/GetEmailStatus"
+	EmailService_ListEmails_FullMethodName     = "/email.v1.email/ListEmails"
 )
 
-// EmailServiceClient is the client API for EmailService service.
+// EmailServiceClient is the client API for email service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type EmailServiceClient interface {
@@ -71,7 +71,7 @@ func (c *emailServiceClient) ListEmails(ctx context.Context, in *ListEmailsReque
 	return out, nil
 }
 
-// EmailServiceServer is the server API for EmailService service.
+// EmailServiceServer is the server API for email service.
 // All implementations must embed UnimplementedEmailServiceServer
 // for forward compatibility.
 type EmailServiceServer interface {
@@ -172,11 +172,11 @@ func _EmailService_ListEmails_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-// EmailService_ServiceDesc is the grpc.ServiceDesc for EmailService service.
+// EmailService_ServiceDesc is the grpc.ServiceDesc for email service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var EmailService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "email.v1.EmailService",
+	ServiceName: "email.v1.email",
 	HandlerType: (*EmailServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
