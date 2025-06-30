@@ -1,0 +1,44 @@
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - goconst
+    - gofmt
+    - goimports
+    - gosimple
+    - misspell
+    - unconvert
+
+run:
+  timeout: 10m
+  go: "1.23"
+
+linters-settings:
+  goconst:
+    min-len: 3
+    min-occurrences: 2
+
+issues:
+  exclude-dirs:
+    - vendor
+    - gen
+    - pkg/api
+    - mocks
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*\\.gen\\.go$"
+    - ".*_gen\\.go$"
+  exclude:
+    - "file requires newer Go version"
+    - "undefined: chi"
+    - "w.Context undefined"
+    - "messageReceived.Event"
+    - "messageSent.Event"
+    - "package http2"
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
