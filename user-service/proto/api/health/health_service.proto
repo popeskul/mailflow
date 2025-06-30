@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package health;
+
+import "google/api/annotations.proto";
+
+option go_package = "github.com/popeskul/mailflow/user-service/pkg/api/health;health";
+
+// HealthService provides methods for health checks.
+service HealthService {
+  // Check performs a general health check.
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {get: "/v1/health"};
+  }
+
+  // Liveness checks if the service is alive.
+  rpc Liveness(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {get: "/v1/liveness"};
+  }
+
+  // Readiness checks if the service is ready to serve traffic.
+  rpc Readiness(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {get: "/v1/readiness"};
+  }
+
+  // Healthz is a legacy endpoint for health checks.
+  rpc Healthz(HealthCheckRequest) returns (HealthCheckResponse) {
+    option (google.api.http) = {get: "/v1/healthz"};
+  }
+}
+
+// HealthCheckRequest is the request message for health check RPCs.
+message HealthCheckRequest {}
+
+// HealthCheckResponse is the response message for health check RPCs.
+message HealthCheckResponse {
+  // status is the health status of the service.
+  HealthStatus status = 1 [json_name = "status"];
+}
+
+// HealthStatus is the status of the service.
+enum HealthStatus {
+  UNKNOWN = 0;
+  HEALTHY = 1;
+  UNHEALTHY = 2;
+  ALIVE = 3;
+  READY = 4;
+}

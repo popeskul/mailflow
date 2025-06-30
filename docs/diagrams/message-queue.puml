@@ -1,0 +1,116 @@
+@startuml Message Queue Flow
+!theme plain
+skinparam participant {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+}
+skinparam queue {
+  BackgroundColor LightYellow
+  BorderColor Orange
+}
+skinparam database {
+  BackgroundColor LightGreen
+  BorderColor DarkGreen
+}
+
+title Email Processing with Circuit Breaker and Message Queue
+
+actor User
+participant "User Service" as US
+participant "Circuit Breaker" as CB
+participant "Message Queue" as MQ
+participant "Queue Processor" as QP
+participant "Rate Limiter" as RL
+participant "Email Service" as ES
+database "Email Repository" as ER
+
+== Normal Email Flow ==
+User -> US : POST /user/create
+note right : Create user with email
+
+US -> ER : Save user
+ER --> US : User saved
+
+US -> CB : Send welcome email
+note right : Check circuit state
+
+alt Circuit Closed (Normal)
+  CB -> RL : Check rate limit
+  alt Rate limit OK
+    RL -> ES : Send email
+    ES --> RL : Success
+    RL --> CB : Email sent
+    CB --> US : Success
+  else Rate limit exceeded
+    RL --> CB : Rate limited
+    CB -> MQ : Queue email
+    note right : Add to retry queue
+    MQ --> CB : Queued
+    CB --> US : Queued for retry
+  end
+else Circuit Open (Service Down)
+  CB -> MQ : Queue email
+  note right : Service unavailable,\nqueue for later
+  MQ --> CB : Queued
+  CB --> US : Queued for retry
+end
+
+US --> User : User created
+
+== Background Queue Processing ==
+loop Every 10 seconds
+  QP -> MQ : Get queued emails
+  MQ --> QP : Email batch
+  
+  loop For each email
+    QP -> CB : Check circuit state
+    alt Circuit allows requests
+      CB -> RL : Check rate limit
+      alt Rate limit OK
+        RL -> ES : Send email
+        alt Email sent successfully
+          ES --> RL : Success
+          RL --> CB : Success
+          CB --> QP : Email sent
+          QP -> MQ : Ack message
+          QP -> ER : Update email status
+        else Email failed
+          ES --> RL : Error
+          RL --> CB : Error
+          CB --> QP : Failed
+          QP -> MQ : Nack message
+          note right : Retry or DLQ\nif max retries exceeded
+        end
+      else Rate limited
+        RL --> CB : Rate limited
+        CB --> QP : Rate limited
+        QP -> MQ : Requeue for later
+      end
+    else Circuit open
+      CB --> QP : Circuit open
+      QP -> MQ : Requeue for later
+      note right : Wait for circuit\nto recover
+    end
+  end
+end
+
+== Service Downtime Simulation ==
+note over ES : Email service goes down\nevery 5 minutes for 30 seconds
+
+ES -> ES : Simulate downtime
+note right : Return errors\nfor all requests
+
+loop During downtime
+  CB -> ES : Health check
+  ES --> CB : Error
+  note left : Circuit opens after\n5 consecutive failures
+end
+
+ES -> ES : Service recovers
+note right : Start accepting\nrequests again
+
+CB -> ES : Test request
+ES --> CB : Success
+note left : Circuit transitions\nto half-open, then closed
+
+@enduml

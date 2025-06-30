@@ -1,0 +1,56 @@
+@startuml
+!theme plain
+skinparam state {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+  FontColor Black
+}
+skinparam arrow {
+  Color DarkBlue
+  FontColor DarkBlue
+}
+
+title Circuit Breaker State Transitions
+
+state Closed {
+  Closed : Normal operation
+  Closed : Requests pass through
+  Closed : Count failures
+}
+
+state Open {
+  Open : All requests fail fast
+  Open : No calls to service
+  Open : Timer running
+}
+
+state HalfOpen {
+  HalfOpen : Limited requests allowed
+  HalfOpen : Test service health
+  HalfOpen : Max 3 concurrent requests
+}
+
+[*] --> Closed : Initial state
+
+Closed --> Open : Failure threshold\nreached (5 failures)
+note on link : Consecutive failures\nexceed limit
+
+Open --> HalfOpen : Timeout expired\n(30 seconds)
+note on link : Recovery timer\nexpired
+
+HalfOpen --> Closed : Success threshold\nreached (2 successes)
+note on link : Service appears\nhealthy
+
+HalfOpen --> Open : Any failure occurs
+note on link : Service still\nunhealthy
+
+Closed --> Closed : Success
+note on link : Reset failure\ncounter
+
+Open --> Open : Request blocked
+note on link : Fail fast
+
+HalfOpen --> HalfOpen : Success but\nnot enough
+note on link : Keep testing
+
+@enduml

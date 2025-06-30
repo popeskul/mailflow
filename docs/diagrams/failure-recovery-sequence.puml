@@ -1,0 +1,79 @@
+@startuml
+!theme plain
+skinparam participant {
+  BackgroundColor LightBlue
+  BorderColor DarkBlue
+}
+
+title Failure Recovery & Retry Mechanisms
+
+participant "User Service" as US
+participant "Circuit Breaker" as CB
+participant "Retry Logic" as Retry
+participant "Message Queue" as MQ
+participant "Email Service" as ES
+
+note over Retry
+**Retry Configuration:**
+• Max attempts: 5
+• Initial delay: 100ms  
+• Max delay: 30s
+• Multiplier: 2.0
+• Jitter: ±10%
+end note
+
+== Service Degradation & Retry ==
+US -> CB : Send email request
+CB -> Retry : Execute with retry
+loop Attempt 1-5
+  Retry -> ES : gRPC SendEmail
+  ES --> Retry : Error (timeout)
+  alt Not last attempt
+    Retry -> Retry : Wait (100ms → 200ms → 400ms → 800ms → 1.6s)
+    note right : Exponential backoff with jitter
+  end
+end
+Retry --> CB : All retries failed
+CB -> CB : Count failure (5/5)
+
+== Circuit Opens ==
+CB -> CB : Open circuit (fail fast)
+CB -> MQ : Queue failed requests
+CB --> US : Circuit open
+
+== Background Recovery ==
+loop While circuit open (30s)
+  MQ -> CB : Check circuit state
+  CB --> MQ : Still open
+  MQ -> MQ : Wait for recovery
+end
+
+== Recovery Testing ==
+CB -> CB : Timeout → Half-open
+MQ -> CB : Test queued email
+CB -> ES : Limited test request
+ES --> CB : Success ✅
+CB -> CB : Record success (1/2)
+
+CB -> ES : Second test
+ES --> CB : Success ✅
+CB -> CB : Close circuit
+
+== Queue Processing Resumes ==
+loop Process all queued
+  MQ -> CB : Send queued email
+  CB -> ES : Forward (circuit closed)
+  ES --> CB : Success
+  CB --> MQ : Email sent
+end
+
+note over US, ES
+**Key Features:**
+• Exponential backoff prevents thundering herd
+• Circuit breaker provides fail-fast behavior
+• Queue ensures no data loss
+• Automatic recovery testing
+• Zero manual intervention required
+end note
+
+@enduml

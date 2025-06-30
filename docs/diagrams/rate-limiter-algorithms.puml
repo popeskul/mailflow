@@ -1,0 +1,119 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam shadowing true
+skinparam defaultFontName "Arial"
+skinparam defaultFontSize 11
+skinparam roundCorner 10
+skinparam padding 5
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+
+title Rate Limiter - Different Ways to Control Email Speed
+
+package "Rate Limiter Toolbox" #E6F3FF {
+  
+  interface "Speed Controller" as Limiter #B3D9FF {
+    +Allow(): Can I go?
+    +Wait(): Please wait
+  }
+  
+  together {
+    class "Token Bucket\n★ Best Choice" as TokenBucket #FFE4E1 {
+      Like a gumball machine
+      --
+      • Tokens refill slowly
+      • Can burst up to 10
+      • Smooth & fair
+    }
+    
+    class "Fixed Window\n☐ Simple" as FixedWindow #E4FFE4 {
+      Like a gym pass
+      --
+      • Resets every minute
+      • Easy but bursty
+      • Watch the edges!
+    }
+    
+    class "Sliding Window\n◈ Precise" as SlidingWindow #FFF4E1 {
+      Like a camera log
+      --
+      • Tracks exact history
+      • Very accurate
+      • Uses more memory
+    }
+    
+    class "Hybrid\n◎ Balanced" as NestedWindow #F0E6FF {
+      Smart mix
+      --
+      • Best of both
+      • Good for scale
+      • Efficient
+    }
+  }
+  
+  Limiter <|.. TokenBucket
+  Limiter <|.. FixedWindow
+  Limiter <|.. SlidingWindow
+  Limiter <|.. NestedWindow
+}
+
+class "Email Service" as EmailService #FFB3D9 {
+  Uses rate limiter
+  60 emails/min
+  Burst: 10
+}
+
+EmailService -right-> Limiter : asks
+
+note bottom of TokenBucket #FFFACD
+  **Token Bucket (Recommended!)**
+  Think of it like a gumball machine:
+  • Gumballs = tokens = emails you can send
+  • Machine adds 1 gumball/second
+  • Can hold up to 10 gumballs
+  • Want to send email? Need a gumball!
+  
+  Why it's great:
+  • Handles bursts nicely
+  • Smooth and fair
+  • Production favorite
+end note
+
+note bottom of FixedWindow #E8F5E9
+  **Fixed Window (Simple!)**
+  Like a gym membership:
+  • 60 visits per month
+  • Resets on the 1st
+  • Use them or lose them!
+  
+  Watch out:
+  ⚠ Can send 120 emails in 1 minute
+  (60 at 11:59, 60 at 12:00)
+end note
+
+note bottom of SlidingWindow #FFE4E1
+  **Sliding Window (Precise!)**
+  Like a security camera:
+  • Records every email sent
+  • Always checks last 60 seconds
+  • Very accurate
+  
+  But:
+  ⚠ Uses more memory
+  ⚠ More complex
+end note
+
+note bottom of NestedWindow #F3E5F5
+  **Hybrid Window (Smart!)**
+  Like a smart thermostat:
+  • Learns from past hour
+  • Adjusts for current hour
+  • Good balance
+  
+  Good for:
+  • High traffic
+  • Save memory
+end note
+
+@enduml

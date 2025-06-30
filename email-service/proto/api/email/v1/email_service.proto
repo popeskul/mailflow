@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package email.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/popeskul/mailflow/email-service/pkg/api/email/v1;emailv1";
+
+service EmailService {
+  rpc SendEmail(SendEmailRequest) returns (SendEmailResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/email/send"
+      body: "*"
+    };
+  }
+
+  rpc GetEmailStatus(GetEmailStatusRequest) returns (GetEmailStatusResponse) {
+    option (google.api.http) = {get: "/api/v1/email/{id}/status"};
+  }
+
+  rpc ListEmails(ListEmailsRequest) returns (ListEmailsResponse) {
+    option (google.api.http) = {get: "/api/v1/email"};
+  }
+}
+
+message Email {
+  string id = 1;
+  string to = 2 [(google.api.field_behavior) = REQUIRED];
+  string subject = 3 [(google.api.field_behavior) = REQUIRED];
+  string body = 4 [(google.api.field_behavior) = REQUIRED];
+  string status = 5;
+  string created_at = 6;
+  string sent_at = 7;
+}
+
+message SendEmailRequest {
+  string to = 1 [(google.api.field_behavior) = REQUIRED];
+  string subject = 2 [(google.api.field_behavior) = REQUIRED];
+  string body = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+message SendEmailResponse {
+  string id = 1;
+  string status = 2;
+}
+
+message GetEmailStatusRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetEmailStatusResponse {
+  string id = 1;
+  string status = 2;
+  string sent_at = 3;
+}
+
+message ListEmailsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListEmailsResponse {
+  repeated Email emails = 1;
+  string next_page_token = 2;
+}

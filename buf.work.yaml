@@ -1,0 +1,4 @@
+version: v2
+directories:
+  - user-service
+  - email-service
